@@ -23,7 +23,10 @@ Where `clients.txt` is a list of clients and usernames that looks like this:
 	192.168.0.666	beavis
 	192.168.0.420	butthead
 	
-Yep, those are tabs separating the ip address from the hostname. And you're probably going to want to exchange SSH keys first.
+Yep, those are tabs separating the ip address from the hostname.
+
+By default, Grape uses cluster.key for ssh. If you don't like that, `ln -s`. Of course, make sure you put your key in the clients' `authorized_keys` or you will be typing a lot of passwords.
+
 
 ## Cool, now where do my datas go?
 
@@ -33,6 +36,6 @@ Query files go into `queries/`.
 _You are responsible for granularization!_
 
 Database goes in `database/`. Database gets synced with RSYNC.  
-_run formatdb_
+
 
 Upon syncronization, data is stored on the remote machine's `~/grapes`

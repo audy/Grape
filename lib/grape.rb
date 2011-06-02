@@ -1,11 +1,13 @@
 class Client
-  attr_accessor :addr, :user
+  attr_accessor :addr, :user, :client
   
   def initialize(args={})
     @addr, @user = args[:addr], args[:user]
+    @verbose = args[:verbose]
+    @client = "#{@user}@#{@addr}"
   end
   
-  def alive?
+  def alive?    
     `ping -q -c 1 -W 1 #{@addr}`
     if $?.exitstatus == 0
       true
@@ -19,14 +21,17 @@ class Client
   end
   
   def remote_sh(cmd)
-    Net::SSH.start(@addr, @user, PASSWORD) do |ssh|
-      ssh.exec! cmd
-    end
+    `ssh -i cluster.key #{@client} "#{cmd}"`
   end
   
-  def stream_blast
-    # can I just run the command like this?!
-    "cat file | ssh user@host megablast -db db -query -out /dev/stdout | ssh me@localhost cat - > query_result.txt"
+  def mkdir(f)
+    remote_sh "mkdir -p #{f}"
+  end
+
+  def sync_folder!(f)
+    mkdir 'grapes'
+    `rsync -av -e ssh -C -i cluster.key #{@client}:grapes/ #{f}`
+    fail "#{@client} can't RSYNC! #{f}" unless $?.exitstatus == 0
   end
   
   def to_s
@@ -43,10 +48,9 @@ class Grape
     @clients = load_config(@config)
   end
   
-  def sync_databases
+  def sync_databases!
     @clients.each do |client|
-      `rsync database/ #{client}:grapes/`
-      fail "#{client} can't RSYNC!" unless $?.exitstatus == 0
+      client.sync_folder! 'databases/'
     end
   end
   
@@ -60,7 +64,7 @@ class Grape
     end
   end
   
-  def remove_dead
+  def remove_dead!
     @clients.delete_if { |x| !x.alive? }
   end
   

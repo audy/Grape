@@ -1,9 +1,16 @@
+#!/usr/bin/env ruby
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'grape'))
 
+config_file = ARGV[0]
+exit if config_file.nil?
 
-g = Grape.new :config => ARGV[0]
+g = Grape.new :config => config_file
+
 puts "There are #{g.clients.length} clients."
 puts "Removing dead clients"
-g.remove_dead
-g.sync_databases
+g.remove_dead!
 puts "There are #{g.clients.length} clients left."
+
+puts "Syncing databases"
+g.sync_databases!
+
