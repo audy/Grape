@@ -5,14 +5,13 @@ Run BLAST distributedly on a Beowulf cluster
 aka: Why am I still using BLAST?  
 aaka: Why is the computer lab so hot?
 
----
 
 ## Requirements:
 
 1. Ruby 1.8.7
 2. megablast 2.2.20 (the old and fast one)
 
-### "Okay great but how do I use this thing?"
+## Okay great but how do I use this thing?
 
 Well, like this:
 
@@ -26,7 +25,7 @@ Where `clients.txt` is a list of clients and usernames that looks like this:
 	
 Yep, those are tabs separating the ip address from the hostname. And you're probably going to want to exchange SSH keys first.
 
-### "Cool, now where do my datas go?"
+## Cool, now where do my datas go?
 
 Excellent question, good chap!
 
