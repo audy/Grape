@@ -5,6 +5,7 @@ config_file = ARGV[0]
 exit if config_file.nil?
 
 g = Grape.new :config => config_file
+#g.clients.each { |client| client.clean! }
 
 puts "There are #{g.clients.length} clients."
 puts "Removing dead clients"
@@ -12,9 +13,16 @@ g.remove_dead!
 
 puts "There are #{g.clients.length} clients left."
 
-puts "Setting up clients. You only need to do this once or when you add new clients"
-#g.setup_clients
+g.setup_clients
 
+# format database
+#`./formatdb -i database/taxcollector.fa -p F`
+
+#puts "Syncronizing Databases"
 g.sync_database!
 
-g.clients.first.run_blast :query => 'asdf', :database => 'asdf'
+puts g.clients.first
+g.clients.first.sync_folder! 'database/'
+g.clients.first.run_blast \
+  :query => 'queries/001.fasta', \
+  :database => 'taxcollector.fa'

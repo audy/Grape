@@ -5,19 +5,18 @@ Run BLAST distributedly on a Beowulf cluster.
 aka: Why am I still using BLAST?  
 aaka: Why is the computer lab so hot?
 
-## Grapes, how do they work?
-
-Grape only requires your clients (workers) to have bash and an SSH server running. Grape installs megablast on clients, syncs database with clients and streams query sequences to clients while they stream results back. This whole process is error-prone and there are currently is no fault tolerance implemented.
-
 ## Requirements:
 
 1. Ruby 1.8.7
 2. megablast 2.2.25 (downloaded automagically)
 3. A room full of idle iMacs
 
-## Okay great but how do I use this thing?
+## Grapes, how do they work?
 
-Well, like this:
+Grape only requires your clients (workers) to have bash and an SSH server running. Grape installs megablast on clients, syncs database with clients and streams query sequences to clients while they stream results back. This whole process is error-prone and there are currently is no fault tolerance implemented.
+
+
+Invoke thusly,
 
 	ruby grape.rb clients.txt	
 
@@ -31,10 +30,6 @@ Yep, those are tabs separating the ip address from the hostname.
 
 By default, Grape uses cluster.key for ssh. If you don't like that, `ln -s`. Of course, make sure you put your key in the clients' `authorized_keys` or you will be typing a lot of passwords.
 
-## Cool, now where do my datas go?
-
-Excellent question, good chap!
-
 Query files go into `queries/`.  
 _You are responsible for granularization!_
 
@@ -46,6 +41,8 @@ Upon syncronization, data is stored on the remote machine's `~/grapes`
 
 If you're the hacker type, you can fiddle with Grape in your own pipeline:
 
+	require './lib/grape.rb' # Get grapin'
+	
 	# Load config
 	grape = Grape.new :config => 'config.txt'
 	
@@ -55,7 +52,7 @@ If you're the hacker type, you can fiddle with Grape in your own pipeline:
 	# Install BLAST on clients
 	grape.setup_clients
 	
-	# Syncronize database using RSYNC
+	# Syncronize database (run formatdb yourself first) using RSYNC
 	grape.sync_database!
 	
 	# Run BLAST

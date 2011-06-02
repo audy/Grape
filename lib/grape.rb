@@ -3,12 +3,13 @@ KEY = './cluster.key'
 DATABASE_DIR = "database"
 
 class Client
-  attr_accessor :addr, :user, :client, :platform
+  attr_accessor :addr, :user, :platform
   
   def initialize(args={})
     @addr, @user = args[:addr], args[:user]
     @verbose = args[:verbose]
-    @client = "#{@user}@#{@addr}"    
+    @client = "#{@user}@#{@addr}"
+    @busy = false
   end
   
   def alive?    
@@ -20,30 +21,51 @@ class Client
     end
   end
   
+  def busy?
+    @busy
+  end
+  
   def setup!
     remote_sh "mkdir -p #{REMOTE_DIR}"
     @platform = remote_sh "uname".downcase
     get_blast
   end
   
+  def sh(cmd)
+    cmd = "ssh -i #{KEY} #{@client} \"#{cmd}\""
+    exec cmd
+  end
+  
   def remote_sh(cmd)
+    puts cmd.inspect
     `ssh -i #{KEY} #{@client} "#{cmd}"`
+  end
+  
+  def clean!
+    remote_sh "rm -r #{REMOTE_DIR}"
   end
   
   def run_blast(args={})
     query = args[:query]
     database = args[:database]
+    
     cmd = %{
       cat #{query} | \
       ssh -C -i #{KEY} #{@client} \
       "#{REMOTE_DIR}/megablast \
-        -d #{database}
+        -i /dev/stdin \
+        -o /dev/stdout \
+        -d #{REMOTE_DIR}/#{database} \
         -m 8 \
         -v 1 \
         -b 1 \
-        -a 4" > results/#{query}
+        -a 4" > results/#{File.basename(query)}
       }
-    puts cmd
+      
+    # Lock
+    @busy = true
+    exec "#{cmd}"
+    @busy = false
   end
   
   def has_file?(f)
@@ -64,8 +86,9 @@ class Client
 
   def sync_folder!(f)
     remote_sh "mkdir -p #{REMOTE_DIR}"
-    cmd = "rsync -auvz -e \"ssh -C -i #{KEY} #{@client}\" f REMOTE_DIR"
+    cmd = "rsync -auvz -e \"ssh -C -i #{KEY} \" #{f} #{@client}:#{REMOTE_DIR}"
     `#{cmd}`
+    puts cmd
     fail "#{@client} can't RSYNC! #{f}" unless $?.exitstatus == 0
   end
   
@@ -74,6 +97,7 @@ class Client
       return true if has_blast?
     end
     
+    @busy = true
     puts "Installing blast on #{@client}"
     
     if @platform.include?('darwin')
@@ -90,6 +114,7 @@ class Client
     remote_sh "rm -r blast*"
     
     # TODO make sure it works!
+    @busy = false
   end
   
   def to_s
@@ -128,7 +153,17 @@ class Grape
     end
     
     puts "all clients have blast! awesome!"
-    
+  end
+  
+  def run_blast
+    query_files = File.glob('queries/*')
+    while query_files.length > 0
+      @clients.each do |client|
+        fork { client.blast query_files.pop } unless client.busy?
+        break if query_files.length == 0
+      end
+      sleep 5
+    end
   end
   
   def sync_database!
