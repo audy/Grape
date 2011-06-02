@@ -1,0 +1,9 @@
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'grape'))
+
+
+g = Grape.new :config => ARGV[0]
+puts "There are #{g.clients.length} clients."
+puts "Removing dead clients"
+g.remove_dead
+g.sync_databases
+puts "There are #{g.clients.length} clients left."

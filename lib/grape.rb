@@ -1,5 +1,6 @@
 class Client
   attr_accessor :addr, :user
+  
   def initialize(args={})
     @addr, @user = args[:addr], args[:user]
   end
@@ -11,6 +12,21 @@ class Client
     else
       false
     end
+  end
+  
+  def setup!
+    # get prerequesites
+  end
+  
+  def remote_sh(cmd)
+    Net::SSH.start(@addr, @user, PASSWORD) do |ssh|
+      ssh.exec! cmd
+    end
+  end
+  
+  def stream_blast
+    # can I just run the command like this?!
+    "cat file | ssh user@host megablast -db db -query -out /dev/stdout | ssh me@localhost cat - > query_result.txt"
   end
   
   def to_s
@@ -45,9 +61,7 @@ class Grape
   end
   
   def remove_dead
-    @clients.each do |client|
-      @clients.delete client unless client.alive?
-    end
+    @clients.delete_if { |x| !x.alive? }
   end
   
   def load_config(filename)
@@ -62,13 +76,4 @@ class Grape
     end
     clients
   end
-  
 end
-
-
-g = Grape.new :config => ARGV[0]
-puts "There are #{g.clients.length} clients."
-puts "Removing dead clients"
-g.remove_dead
-g.sync_databases
-puts "There are #{g.clients.length} clients left."
