@@ -10,6 +10,7 @@ aaka: Why is the computer lab so hot?
 
 1. Ruby 1.8.7
 2. megablast 2.2.20 (the old and fast one)
+3. A room full of idle iMacs
 
 ## Okay great but how do I use this thing?
 
