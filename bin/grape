@@ -8,10 +8,12 @@ g = Grape.new :config => config_file
 
 puts "There are #{g.clients.length} clients."
 puts "Removing dead clients"
-g.remove_dead!
+#g.remove_dead!
 
 puts "There are #{g.clients.length} clients left."
 
 puts "Setting up clients"
 
-g.setup_clients
+#g.setup_clients
+
+g.clients.first.run_blast :query => 'asdf', :database => 'asdf'

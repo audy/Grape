@@ -21,9 +21,7 @@ class Client
   
   def setup!
     remote_sh "mkdir -p #{REMOTE_DIR}"
-    puts 'made remote directory'
     @platform = remote_sh "uname".downcase
-    puts "platform = #{@platform}"
     get_blast
   end
   
@@ -31,20 +29,36 @@ class Client
     `ssh -i #{KEY} #{@client} "#{cmd}"`
   end
   
-  def remote_has?(f)
+  def run_blast(args={})
+    query = args[:query]
+    database = args[:database]
+    cmd = %{
+      cat #{query} | \
+      ssh -i #{KEY} #{@client} \
+      "#{REMOTE_DIR}/megablast \
+        -d #{database}
+        -m 8 \
+        -v 1 \
+        -b 1 \
+        -a 4" > results/#{query}
+      }
+    puts cmd
+  end
+  
+  def has_file?(f)
     cmd = %{
       if [ -e #{f} ]
       then
         exit 0
       else
         exit 1
-      fi      
+      fi  
     }
     remote_sh cmd
   end
   
   def has_blast?
-    remote_has? "#{REMOTE_DIR}/megablast"
+    has_file? "#{REMOTE_DIR}/megablast"
   end
 
   def sync_folder!(f)
@@ -53,11 +67,11 @@ class Client
   end
   
   def get_blast(args={})
-    puts "Installing blast on #{@client}"
-    puts @platform
     unless args[:force]
       return true if has_blast?
     end
+    
+    puts "Installing blast on #{@client}"
     
     if @platform.include?('darwin')
       url = 'ftp://ftp.ncbi.nlm.nih.gov/blast/executables/release/2.2.25/blast-2.2.25-universal-macosx.tar.gz'

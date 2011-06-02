@@ -9,7 +9,7 @@ aaka: Why is the computer lab so hot?
 
 1. Ruby 1.8.7
 2. megablast 2.2.25 (downloaded automagically)
-3. A room full of idle iMacs
+3. A room full of idle iMacs (clients need to have BASH/SSH)
 
 ## Okay great but how do I use this thing?
 
