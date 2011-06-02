@@ -1,5 +1,6 @@
 REMOTE_DIR = '~/grapes'
 KEY = './cluster.key'
+DATABASE_DIR = "database"
 
 class Client
   attr_accessor :addr, :user, :client, :platform
@@ -34,7 +35,7 @@ class Client
     database = args[:database]
     cmd = %{
       cat #{query} | \
-      ssh -i #{KEY} #{@client} \
+      ssh -C -i #{KEY} #{@client} \
       "#{REMOTE_DIR}/megablast \
         -d #{database}
         -m 8 \
@@ -62,7 +63,9 @@ class Client
   end
 
   def sync_folder!(f)
-    `rsync -av -e ssh -C -i #{KEY} #{@client}:#{REMOTE_DIR}/ #{f}`
+    remote_sh "mkdir -p #{REMOTE_DIR}"
+    cmd = "rsync -auvz -e \"ssh -C -i #{KEY} #{@client}\" f REMOTE_DIR"
+    `#{cmd}`
     fail "#{@client} can't RSYNC! #{f}" unless $?.exitstatus == 0
   end
   
@@ -104,7 +107,6 @@ class Grape
   end
   
   def setup_clients
-
     # check platform
     @clients.each do |c|
       c.setup!
@@ -129,9 +131,9 @@ class Grape
     
   end
   
-  def sync_databases!
+  def sync_database!
     @clients.each do |client|
-      client.sync_folder! 'databases/'
+      client.sync_folder! DATABASE_DIR
     end
   end
   
