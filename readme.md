@@ -5,7 +5,7 @@ Run BLAST distributedly on a Beowulf cluster.
 aka: Why am I still using BLAST?  
 aaka: Why is the computer lab so hot?
 
-## Requirements:
+**Requirements:**
 
 1. Ruby 1.8.7
 2. megablast 2.2.25 (downloaded automagically)
