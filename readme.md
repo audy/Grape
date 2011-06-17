@@ -1,20 +1,17 @@
-# Grape
+# Grapes, how do they work?
 
-Run BLAST distributedly on a Beowulf cluster.
-
-aka: Why am I still using BLAST?  
-aaka: Why is the computer lab so hot?
+Grape is map-reduce duct taped onto BLAST. In this setup, worker nodes are controlled by a head node via SSH. Worker nodes need to have SSH servers running and the host's encryption key in their authorized_keys file. The head node will command workers to retrieve the appropriate build of BLAST for their architecture, retrieve and format the database from the head node, BLAST sequences against said database and return results to the head node over SSH. In the end, you get a single, tab-delimited output file with the results.
 
 **Requirements:**
 
 1. Ruby 1.8.7
 2. megablast 2.2.25 (downloaded automagically)
-3. A room full of idle iMacs
+3. Mac OSX / Linux (intel) supported. Other architectures can easily be added.
 
-## Grapes, how do they work?
+See also: [zounds](http://www.github.com/ctb/zounds).
 
-Grape only requires your clients (workers) to have bash and an SSH server running. Grape installs megablast on clients, syncs database with clients and streams query sequences to clients while they stream results back. This whole process is error-prone and there are currently is no fault tolerance implemented.
 
+## Setting up
 
 Invoke thusly,
 
@@ -28,18 +25,17 @@ Where `clients.txt` is a list of clients and usernames that looks like this:
 
 Yep, those are tabs separating the ip address from the hostname.
 
-By default, Grape uses cluster.key for ssh. If you don't like that, `ln -s`. Of course, make sure you put your key in the clients' `authorized_keys` or you will be typing a lot of passwords.
+By default, Grape uses cluster.key for SSH. Concatenate this file with the ~/.ssh/authorized_keys file on the workers.
 
-Query files go into `queries/`.  
-_You are responsible for granularization!_
+Query files go into `queries/`. Files are sent to worker nodes as is so split them up as much as you like.
 
-Database goes in `database/`. Database gets synced with RSYNC.  
+Database goes in `database/`. Databases are syncronized with workers and formatted on the workers using `formatdb`
 
-Upon syncronization, data is stored on the remote machine's `~/grapes`
+All worker files are stored in `~/grapes`.
 
 ## lib/grape
 
-If you're the hacker type, you can fiddle with Grape in your own pipeline:
+For genome hacking cyberpunks only:
 
 	require './lib/grape.rb' # Get grapin'
 	

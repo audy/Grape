@@ -12,7 +12,8 @@ class Client
     @busy = false
   end
   
-  def alive?    
+  # does the client respond to pings?
+  def alive?
     `ping -q -c 1 -W 1 #{@addr}`
     if $?.exitstatus == 0
       true
@@ -21,33 +22,43 @@ class Client
     end
   end
   
+  # for locking
   def busy?
     @busy
   end
   
+  # get everything client needs in order to run blast
   def setup!
+    @busy = true
+    # make directory
     remote_sh "mkdir -p #{REMOTE_DIR}"
-    @platform = remote_sh "uname".downcase
-    get_blast
+    
+    # get platform
+    @platform = (remote_sh "uname").downcase
+    @platform = 'darwin'
+    
+    # download blast and sync database
+    ret = get_blast && (sync_folder! 'database/')
+    @busy = false
+    ret
   end
   
+  # for client.sh 'command', returns exit status
   def sh(cmd)
-    cmd = "ssh -i #{KEY} #{@client} \"#{cmd}\""
-    exec cmd
+    remote_sh cmd
   end
   
-  def remote_sh(cmd)
-    puts cmd.inspect
-    `ssh -i #{KEY} #{@client} "#{cmd}"`
-  end
-  
+  # delete's remote directory
   def clean!
-    remote_sh "rm -r #{REMOTE_DIR}"
+    remote_sh "rm -rf #{REMOTE_DIR}"
   end
   
+  # runs blast on client
   def run_blast(args={})
     query = args[:query]
     database = args[:database]
+    
+    puts "#{@client}: #{query} vs #{database}"
     
     cmd = %{
       cat #{query} | \
@@ -64,10 +75,11 @@ class Client
       
     # Lock
     @busy = true
-    exec "#{cmd}"
+    `#{cmd}`
     @busy = false
   end
-  
+
+  # true/false if client has file
   def has_file?(f)
     cmd = %{
       if [ -e #{f} ]
@@ -75,15 +87,18 @@ class Client
         exit 0
       else
         exit 1
-      fi  
+      fi
     }
-    remote_sh cmd
+    `ssh -i cluster.key #{@client} \"#{cmd}\"`
+    $?.exitstatus
   end
   
+  # does the client have blast?
   def has_blast?
     has_file? "#{REMOTE_DIR}/megablast"
   end
 
+  # syncronize a local folder to REMOTE_DIR using RSYNC
   def sync_folder!(f)
     remote_sh "mkdir -p #{REMOTE_DIR}"
     cmd = "rsync -auvz -e \"ssh -C -i #{KEY} \" #{f} #{@client}:#{REMOTE_DIR}"
@@ -92,9 +107,16 @@ class Client
     fail "#{@client} can't RSYNC! #{f}" unless $?.exitstatus == 0
   end
   
+  def to_s
+    @client
+  end
+  
+  private
+  
+  # Download and install BLAST
   def get_blast(args={})
     unless args[:force]
-      return true if has_blast?
+      return true if (has_blast? == 0)
     end
     
     @busy = true
@@ -105,45 +127,57 @@ class Client
     elsif @platform.include?('linux')
       url = 'ftp://ftp.ncbi.nlm.nih.gov/blast/executables/release/2.2.25/blast-2.2.25-x64-linux.tar.gz'
     else
-      fail 'unknown platform! Bug @audyyy: http://www.github.com/audy'
+      fail "unknown platform: #{@platform}"
     end
     
-    remote_sh "curl #{url} > ~/#{REMOTE_DIR}/blast.tar.gz"
-    remote_sh "tar -zxvf blast.tar.gz"
-    remote_sh "mv blast-2.2.25/bin/megablast #{REMOTE_DIR}"
-    remote_sh "rm -r blast*"
-    
-    # TODO make sure it works!
+    cmd = %{
+      cd #{REMOTE_DIR}
+      curl #{url} > blast.tar.gz
+      tar -zxvf blast.tar.gz
+      mv blast-2.2.25/bin/megablast .
+      rm -r blast-2.2.25/*
+    }
+    remote_sh cmd
     @busy = false
+    
+    has_file? "#{REMOTE_DIR}/megablast"
   end
   
-  def to_s
-    "#{@user}@#{@addr}"
+  # Run commands remotely, returns exit status
+  def remote_sh(cmd)
+    @busy = true
+
+    puts cmd.inspect
+    begin
+      res = `ssh -i #{KEY} #{@client} "#{cmd}"` # todo, allow for failure
+    rescue
+      return 1
+    end
+    @busy = false
+    res # need to return result
   end
-  
+
 end
 
 class Grape
-  attr_accessor :config, :clients
+  attr_accessor :config, :clients, :database
   
   def initialize(args={})
     @config = args[:config]
-    @clients = load_config @config
+    @clients = Array.new
+    @database = args[:database]
+    
+    load_config unless @config.nil?
   end
   
+  # Gets clients ready for BLAST
   def setup_clients
-    # check platform
-    @clients.each do |c|
-      c.setup!
-      puts "#{c} .. #{c.platform}"
-    end
-
     # psuedo asyncronously setup clients
     # make deep copy of clients list
     need_blast = @clients.collect { |x| Marshal.load(Marshal.dump(x)) }
 
     need_blast.each do |c|
-      fork { c.get_blast }
+      fork { c.setup! }
     end
     
     while need_blast.length > 0 do
@@ -155,47 +189,65 @@ class Grape
     puts "all clients have blast! awesome!"
   end
   
+  # Run blast on queries/*
   def run_blast
-    query_files = File.glob('queries/*')
+    query_files = Dir.glob('queries/*')
     while query_files.length > 0
       @clients.each do |client|
-        fork { client.blast query_files.pop } unless client.busy?
+      file = query_files.pop
+      puts file
+        fork {
+          client.run_blast(:query => file, :database => @database)
+        } unless client.busy?
         break if query_files.length == 0
       end
       sleep 5
     end
   end
   
+  # Syncronize database with clients
   def sync_database!
     @clients.each do |client|
       client.sync_folder! DATABASE_DIR
     end
   end
   
+  # run command on all clients
+  def sh(cmd)
+    @clients.each { |client| client.sh cmd }
+  end
+  
+  # List clients
   def print_clients
     @clients.each { |client| puts client }
   end
   
+  # Print a list of dead/alive clients
   def check_clients
     @clients.each do |client|
       puts "#{client}\t#{client.alive?}"
     end
   end
   
+  # Remote clients that don't respond to pings
   def remove_dead!
     @clients.delete_if { |x| !x.alive? }
   end
   
-  def load_config(filename)
-    clients = Array.new
-    File.open(filename) do |h|
+  # Add a new client
+  def add_client(args={})
+    @clients << Client.new(args)
+  end
+  
+  # Load a config file, add clients
+  def load_config
+    File.open(@config) do |h|
       h.each do |line|
         unless line[0].chr == '#'
           line = line.strip.split("\t")
-          clients << Client.new(:addr => line[0], :user => line[1])
+          add_client(:addr => line[0], :user => line[1])
         end
       end
     end
-    clients
   end
 end
